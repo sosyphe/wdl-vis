@@ -216,6 +216,22 @@ export class Tokenizer {
     let content = ''
     while (this.pos < this.src.length && depth > 0) {
       const c = this.src[this.pos]
+      // Skip over ${...} interpolations so their } doesn't affect depth
+      if (c === '$' && this.src[this.pos + 1] === '{') {
+        content += c; this.pos++; this.col++
+        content += '{'; this.pos++; this.col++
+        let interp = 1
+        while (this.pos < this.src.length && interp > 0) {
+          const ic = this.src[this.pos]
+          if (ic === '{') interp++
+          else if (ic === '}') interp--
+          if (ic === '\n') { this.line++; this.col = 1 } else this.col++
+          if (interp > 0) content += ic
+          this.pos++
+        }
+        content += '}'
+        continue
+      }
       if (c === '{') depth++
       else if (c === '}') { depth--; if (depth === 0) { this.pos++; this.col++; break } }
       if (c === '\n') { this.line++; this.col = 1 } else this.col++

@@ -2,7 +2,7 @@ function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-function findTaskBlock(wdlText: string, taskName: string): { start: number; end: number } | null {
+export function findTaskBlock(wdlText: string, taskName: string): { start: number; end: number } | null {
   const regex = new RegExp(`\\btask\\s+${escapeRegex(taskName)}\\s*\\{`)
   const match = regex.exec(wdlText)
   if (!match) return null
@@ -19,6 +19,35 @@ function findTaskBlock(wdlText: string, taskName: string): { start: number; end:
     }
   }
   return null
+}
+
+export function findCallBlock(wdlText: string, taskName: string, callAlias?: string): { start: number; end: number } | null {
+  const aliasPattern = callAlias && callAlias !== taskName
+    ? `${escapeRegex(taskName)}\\s+as\\s+${escapeRegex(callAlias)}`
+    : escapeRegex(taskName)
+  const regex = new RegExp(`\\bcall\\s+${aliasPattern}\\s*(?=[{\\n\\r])`)
+  const match = regex.exec(wdlText)
+  if (!match) return null
+
+  const start = match.index
+  const afterMatch = match.index + match[0].length
+
+  // If the call has a block body, find its closing brace
+  const nextNonSpace = wdlText.slice(afterMatch).search(/\S/)
+  if (nextNonSpace !== -1 && wdlText[afterMatch + nextNonSpace] === '{') {
+    let depth = 0
+    for (let i = afterMatch + nextNonSpace; i < wdlText.length; i++) {
+      if (wdlText[i] === '{') depth++
+      else if (wdlText[i] === '}') {
+        depth--
+        if (depth === 0) return { start, end: i + 1 }
+      }
+    }
+  }
+
+  // Bare call with no block — select to end of line
+  const eol = wdlText.indexOf('\n', afterMatch)
+  return { start, end: eol === -1 ? wdlText.length : eol }
 }
 
 // Measure the pixel offset of a character index inside a textarea by mirroring
@@ -39,9 +68,9 @@ function measureCharOffsetTop(textarea: HTMLTextAreaElement, charIndex: number):
     `letter-spacing:${style.letterSpacing}`,
     `word-spacing:${style.wordSpacing}`,
     `tab-size:${style.tabSize}`,
-    `white-space:pre-wrap`,
-    `word-wrap:break-word`,
-    `overflow-wrap:break-word`,
+    `white-space:${style.whiteSpace}`,
+    `word-wrap:${style.wordWrap}`,
+    `overflow-wrap:${style.overflowWrap}`,
     `box-sizing:${style.boxSizing}`,
   ].join(';')
 
@@ -60,8 +89,8 @@ function measureCharOffsetTop(textarea: HTMLTextAreaElement, charIndex: number):
 }
 
 export function useTextareaHighlight() {
-  function highlightTaskBlock(textarea: HTMLTextAreaElement, wdlText: string, taskName: string) {
-    const block = findTaskBlock(wdlText, taskName)
+  function highlightTaskBlock(textarea: HTMLTextAreaElement, wdlText: string, taskName: string, callAlias?: string) {
+    const block = findTaskBlock(wdlText, taskName) ?? findCallBlock(wdlText, taskName, callAlias)
     if (!block) return
 
     textarea.focus()

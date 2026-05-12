@@ -168,14 +168,42 @@ describe('parseWdl', () => {
     expect(doc.workflow).not.toBeNull()
   })
 
-  it('parses multiple tasks', () => {
+  it('parses task command block containing ${} interpolations without premature close', () => {
     const doc = parseWdl(`
       version 1.0
-      task a { command { echo a } output {} }
-      task b { command { echo b } output {} }
+      task t {
+        input { String ref String sample }
+        command {
+          echo \${ref} \\
+            --sample \${sample} \\
+            --out result
+        }
+        output { File out = "result" }
+      }
+    `)
+    expect(doc.errors).toHaveLength(0)
+    expect(doc.tasks[0].command).toContain('${ref}')
+    expect(doc.tasks[0].command).toContain('${sample}')
+    expect(doc.tasks[0].outputs[0].name).toBe('out')
+  })
+
+  it('parses multiple tasks after a task with ${} in command block', () => {
+    const doc = parseWdl(`
+      version 1.0
+      task first {
+        input { String x }
+        command { run --flag \${x} }
+        output {}
+      }
+      task second {
+        input { String y }
+        command { echo \${y} }
+        output { String out = "ok" }
+      }
     `)
     expect(doc.errors).toHaveLength(0)
     expect(doc.tasks).toHaveLength(2)
-    expect(doc.tasks.map(t => t.name)).toEqual(['a', 'b'])
+    expect(doc.tasks[1].name).toBe('second')
+    expect(doc.tasks[1].outputs[0].name).toBe('out')
   })
 })

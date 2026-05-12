@@ -116,7 +116,7 @@ async function onNodeSelect(node: WdlNode | null) {
   if (node?.kind === 'call' && node.taskName && !textPanelCollapsed.value) {
     await nextTick()
     if (textareaRef.value) {
-      highlightTaskBlock(textareaRef.value, wdlText.value, node.taskName)
+      highlightTaskBlock(textareaRef.value, wdlText.value, node.taskName, node.label)
     }
   }
 }

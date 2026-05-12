@@ -1,6 +1,7 @@
 node_modules/
 dist/
 demo-dist/
+bug/
 .vite/
 .DS_Store
 Thumbs.db
