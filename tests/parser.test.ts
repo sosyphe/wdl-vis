@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { parseWdl } from '../src/parser/parser'
+import { normalizeCommand } from '../src/parser/command'
 
 describe('parseWdl', () => {
   it('parses a minimal workflow', () => {
@@ -53,6 +54,9 @@ describe('parseWdl', () => {
     `)
     expect(doc.errors).toHaveLength(0)
     expect(doc.tasks[0].commandStyle).toBe('heredoc')
+    // opener newline and closing-delimiter whitespace are stripped, the
+    // template literal's own 10-space indentation is preserved
+    expect(doc.tasks[0].command).toBe('          echo hello')
   })
 
   it('parses a call statement', () => {
@@ -205,5 +209,76 @@ describe('parseWdl', () => {
     expect(doc.tasks).toHaveLength(2)
     expect(doc.tasks[1].name).toBe('second')
     expect(doc.tasks[1].outputs[0].name).toBe('out')
+  })
+})
+
+describe('normalizeCommand', () => {
+  it('strips opener newline and trailing closing-delimiter whitespace, preserving indentation', () => {
+    expect(normalizeCommand('\n    echo one\n      echo two\n  ')).toBe('    echo one\n      echo two')
+  })
+
+  it('preserves interior blank lines', () => {
+    expect(normalizeCommand('\n  a\n\n  b\n')).toBe('  a\n\n  b')
+  })
+
+  it('strips only ONE leading newline — a deliberate blank first line stays', () => {
+    expect(normalizeCommand('\n\n  echo x\n')).toBe('\n  echo x')
+  })
+
+  it('trims delimiter spaces on a single-line brace command', () => {
+    expect(normalizeCommand(' echo hi ')).toBe('echo hi')
+  })
+
+  it('leaves already-clean text untouched', () => {
+    expect(normalizeCommand('echo hi')).toBe('echo hi')
+  })
+
+  it('strips horizontal whitespace preceding the opener newline', () => {
+    expect(normalizeCommand('  \n echo x ')).toBe(' echo x')
+  })
+
+  it('consumes a leading CRLF as a unit and keeps interior CRLFs', () => {
+    expect(normalizeCommand('\r\n  a\r\n  b\r\n')).toBe('  a\r\n  b')
+  })
+
+  it('reduces whitespace-only or empty content to the empty string', () => {
+    expect(normalizeCommand('\n')).toBe('')
+    expect(normalizeCommand('   ')).toBe('')
+    expect(normalizeCommand('')).toBe('')
+  })
+})
+
+describe('command normalization through parseWdl', () => {
+  it('normalizes the sample.wdl heredoc exactly (4-space indent, single line)', () => {
+    const doc = parseWdl('version 1.0\ntask t {\n  command <<<\n    echo "~{length(messages)} greetings collected."\n  >>>\n}')
+    expect(doc.errors).toHaveLength(0)
+    expect(doc.tasks[0].command).toBe('    echo "~{length(messages)} greetings collected."')
+    expect(doc.tasks[0].commandStyle).toBe('heredoc')
+  })
+
+  it('normalizes a multi-line brace command, preserving indentation', () => {
+    const doc = parseWdl('version 1.0\ntask t {\n  command {\n    echo one\n      echo two\n  }\n}')
+    expect(doc.errors).toHaveLength(0)
+    expect(doc.tasks[0].command).toBe('    echo one\n      echo two')
+    expect(doc.tasks[0].commandStyle).toBe('brace')
+  })
+
+  it('normalizes a single-line brace command', () => {
+    const doc = parseWdl('version 1.0\ntask t {\n  command { echo hi }\n}')
+    expect(doc.errors).toHaveLength(0)
+    expect(doc.tasks[0].command).toBe('echo hi')
+    expect(doc.tasks[0].commandStyle).toBe('brace')
+  })
+
+  it('normalizes CRLF source', () => {
+    const doc = parseWdl('version 1.0\r\ntask t {\r\n  command <<<\r\n    echo x\r\n  >>>\r\n}')
+    expect(doc.errors).toHaveLength(0)
+    expect(doc.tasks[0].command).toBe('    echo x')
+  })
+
+  it('yields an empty command for an empty heredoc', () => {
+    const doc = parseWdl('version 1.0\ntask t {\n  command <<<\n  >>>\n}')
+    expect(doc.errors).toHaveLength(0)
+    expect(doc.tasks[0].command).toBe('')
   })
 })

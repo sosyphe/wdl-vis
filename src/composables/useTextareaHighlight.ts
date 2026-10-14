@@ -1,54 +1,10 @@
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
+// The DOM-free locators moved to src/parser/locate.ts so editor integrations can
+// reuse them without pulling in browser-only code. Re-exported here for
+// backwards compatibility with existing import paths.
+export { findTaskBlock, findCallBlock } from '../parser/locate'
+export type { BlockRange } from '../parser/locate'
 
-export function findTaskBlock(wdlText: string, taskName: string): { start: number; end: number } | null {
-  const regex = new RegExp(`\\btask\\s+${escapeRegex(taskName)}\\s*\\{`)
-  const match = regex.exec(wdlText)
-  if (!match) return null
-
-  const start = match.index
-  let depth = 0
-  let i = match.index + match[0].length - 1
-
-  for (; i < wdlText.length; i++) {
-    if (wdlText[i] === '{') depth++
-    else if (wdlText[i] === '}') {
-      depth--
-      if (depth === 0) return { start, end: i + 1 }
-    }
-  }
-  return null
-}
-
-export function findCallBlock(wdlText: string, taskName: string, callAlias?: string): { start: number; end: number } | null {
-  const aliasPattern = callAlias && callAlias !== taskName
-    ? `${escapeRegex(taskName)}\\s+as\\s+${escapeRegex(callAlias)}`
-    : escapeRegex(taskName)
-  const regex = new RegExp(`\\bcall\\s+${aliasPattern}\\s*(?=[{\\n\\r])`)
-  const match = regex.exec(wdlText)
-  if (!match) return null
-
-  const start = match.index
-  const afterMatch = match.index + match[0].length
-
-  // If the call has a block body, find its closing brace
-  const nextNonSpace = wdlText.slice(afterMatch).search(/\S/)
-  if (nextNonSpace !== -1 && wdlText[afterMatch + nextNonSpace] === '{') {
-    let depth = 0
-    for (let i = afterMatch + nextNonSpace; i < wdlText.length; i++) {
-      if (wdlText[i] === '{') depth++
-      else if (wdlText[i] === '}') {
-        depth--
-        if (depth === 0) return { start, end: i + 1 }
-      }
-    }
-  }
-
-  // Bare call with no block — select to end of line
-  const eol = wdlText.indexOf('\n', afterMatch)
-  return { start, end: eol === -1 ? wdlText.length : eol }
-}
+import { findTaskBlock, findCallBlock } from '../parser/locate'
 
 // Measure the pixel offset of a character index inside a textarea by mirroring
 // its styles into a hidden div and reading the caret position.

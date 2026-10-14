@@ -110,7 +110,7 @@ describe('buildGraph', () => {
     const graph = buildGraph(doc)
     const node = graph.nodes.find(n => n.kind === 'call')
     expect(node?.runtimeInfo?.['docker']).toBe('ubuntu:20.04')
-    expect(node?.command).toBeTruthy()
+    expect(node?.command).toBe('echo hello')
   })
 
   it('returns empty graph for input with no workflow', () => {

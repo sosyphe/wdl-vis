@@ -1,4 +1,5 @@
 import { Tokenizer, TokenType, type Token, TYPE_KEYWORDS } from './tokenizer'
+import { normalizeCommand } from './command'
 import type {
   WdlDocument, WdlWorkflow, WdlTask, WdlDeclaration, WdlOutputDeclaration,
   WdlStatement, WdlCallStatement, WdlCallInput, WdlIfBlock, WdlScatterBlock,
@@ -115,16 +116,16 @@ class WdlParser {
           this.next()
           if (this.check(TokenType.HEREDOC)) {
             const t = this.next()
-            command = t.value
+            command = normalizeCommand(t.value)
             commandStyle = 'heredoc'
           } else if (this.check(TokenType.LBRACE)) {
             this.next()
-            command = this.tokenizer.readCommandBlock()
+            command = normalizeCommand(this.tokenizer.readCommandBlock())
             commandStyle = 'brace'
           } else if (this.peek().type === TokenType.LT) {
             // <<< is tokenized as LT LT LT — handle via readHeredocFallback
             const content = this.readHeredocManual()
-            command = content
+            command = normalizeCommand(content)
             commandStyle = 'heredoc'
           } else {
             this.skipLine()

@@ -1,0 +1,19 @@
+{
+  // Declaration-only build config. The root tsconfig sets noEmit:true because
+  // Vite/esbuild does the transpiling; this file overrides that so `vue-tsc` can
+  // emit .d.ts into dist/types. It must stay separate from tsconfig.json for
+  // exactly that reason.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "declarationMap": false,
+    "rootDir": "src",
+    "outDir": "dist/types"
+  },
+  "include": ["src/**/*.ts", "src/**/*.vue"],
+  // src/demo is the GitHub Pages playground, not part of the published API —
+  // keep its declarations out of the tarball.
+  "exclude": ["src/demo/**"]
+}
